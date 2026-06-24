@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>音频采集</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 24px;
+    }
+
+    /* 顶部进度导航 */
+    .top-nav {
+      width: 100%;
+      max-width: 1000px;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 36px;
+    }
+    .nav-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+    }
+    .nav-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 18px;
+      left: 60%;
+      right: -40%;
+      height: 2px;
+      background: #e2e8f0;
+      z-index: 0;
+    }
+    .nav-step.done:not(:last-child)::after  { background: #4f86f7; }
+    .nav-dot {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #a0aec0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700;
+      position: relative; z-index: 1;
+      transition: all 0.3s;
+    }
+    .nav-step.done   .nav-dot { background: #4f86f7; color: #fff; }
+    .nav-step.active .nav-dot { background: #4f86f7; color: #fff; box-shadow: 0 0 0 4px #bfdbfe; }
+    .nav-label { font-size: 13px; color: #a0aec0; font-weight: 500; }
+    .nav-step.done   .nav-label { color: #4f86f7; }
+    .nav-step.active .nav-label { color: #1a202c; font-weight: 600; }
+
+    /* 主卡片：两栏布局 */
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+      width: 100%;
+      max-width: 1000px;
+      display: flex;
+      min-height: 480px;
+      overflow: hidden;
+    }
+
+    /* 左栏：说明 / 文本内容 */
+    .col-left {
+      flex: 1;
+      padding: 48px 44px;
+      border-right: 1px solid #f0f4f8;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    /* 右栏：录音控件 */
+    .col-right {
+      width: 340px;
+      flex-shrink: 0;
+      padding: 48px 36px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    /* 欢迎页：全宽，不分栏 */
+    .card.single-col .col-left  { border-right: none; flex: 1; max-width: 680px; margin: 0 auto; justify-content: flex-start; padding-top: 56px; }
+    .card.single-col .col-right { display: none; }
+
+    h1 { font-size: 28px; font-weight: 700; color: #1a202c; margin-bottom: 14px; }
+    h2 { font-size: 22px; font-weight: 700; color: #1a202c; margin-bottom: 12px; }
+    p  { font-size: 16px; color: #4a5568; line-height: 1.8; }
+
+    .hint {
+      background: #ebf4ff;
+      border-left: 3px solid #4f86f7;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 20px 0 0;
+      font-size: 14px;
+      color: #2b6cb0;
+    }
+
+    .passage-box {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-top: 20px;
+      font-size: 18px;
+      line-height: 2.2;
+      color: #2d3748;
+    }
+
+    /* 参与者编号 */
+    .pid-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+      padding: 18px 20px;
+      background: #fffbeb;
+      border: 1px solid #f6e05e;
+      border-radius: 12px;
+    }
+    .pid-row label { font-size: 15px; font-weight: 600; color: #744210; white-space: nowrap; }
+    .pid-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+    }
+    .pid-row input:focus { border-color: #4f86f7; }
+
+    /* 单音按钮组 */
+    .vowel-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 24px;
+    }
+    .vowel-btn {
+      aspect-ratio: 1;
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      background: #fff;
+      font-size: 36px;
+      font-weight: 700;
+      color: #4a5568;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .vowel-btn small { font-size: 13px; font-weight: 400; color: #a0aec0; }
+    .vowel-btn:hover  { border-color: #4f86f7; color: #4f86f7; transform: translateY(-2px); }
+    .vowel-btn.active { border-color: #4f86f7; background: #ebf4ff; color: #4f86f7; }
+    .vowel-btn.done   { border-color: #48bb78; background: #f0fff4; color: #48bb78; }
+
+    /* 右栏：当前录制提示 */
+    .recording-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #4a5568;
+      text-align: center;
+    }
+    .recording-target {
+      font-size: 52px;
+      font-weight: 800;
+      color: #4f86f7;
+      text-align: center;
+      min-height: 64px;
+    }
+
+    /* 录音按钮 */
+    .record-btn {
+      width: 100px; height: 100px;
+      border-radius: 50%; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .record-btn.idle      { background: #4f86f7; box-shadow: 0 6px 20px rgba(79,134,247,0.4); }
+    .record-btn.idle:hover { transform: scale(1.06); }
+    .record-btn.recording {
+      background: #e53e3e;
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(229,62,62,0.5); }
+      70%  { box-shadow: 0 0 0 20px rgba(229,62,62,0);   }
+      100% { box-shadow: 0 0 0 0   rgba(229,62,62,0);    }
+    }
+
+    .record-label { font-size: 15px; color: #718096; text-align: center; }
+
+    .save-status { font-size: 14px; min-height: 20px; text-align: center; transition: color 0.2s; }
+    .save-status.saving { color: #718096; }
+    .save-status.ok     { color: #38a169; font-weight: 600; }
+    .save-status.error  { color: #e53e3e; }
+
+    audio { width: 100%; border-radius: 10px; }
+
+    /* 按钮 */
+    .btn {
+      padding: 13px 32px;
+      border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #4f86f7; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #3a72e8; }
+    .btn-ghost   { background: #edf2f7; color: #4a5568; }
+    .btn-ghost:hover:not(:disabled)   { background: #e2e8f0; }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: auto;
+      padding-top: 32px;
+      gap: 12px;
+    }
+
+    .question-tag {
+      display: inline-block;
+      background: #ebf4ff; color: #4f86f7;
+      border-radius: 20px;
+      padding: 4px 16px;
+      font-size: 14px; font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    .step { display: none; }
+    .step.active { display: flex; width: 100%; justify-content: center; }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部步骤导航 -->
+  <nav class="top-nav" id="topNav">
+    <div class="nav-step" id="nav0">
+      <div class="nav-dot">1</div>
+      <span class="nav-label">单音</span>
+    </div>
+    <div class="nav-step" id="nav1">
+      <div class="nav-dot">2</div>
+      <span class="nav-label">短文</span>
+    </div>
+    <div class="nav-step" id="nav2">
+      <div class="nav-dot">3</div>
+      <span class="nav-label">问答</span>
+    </div>
+    <div class="nav-step" id="nav3">
+      <div class="nav-dot">4</div>
+      <span class="nav-label">完成</span>
+    </div>
+  </nav>
+
+  <!-- ========== 步骤 0：欢迎 ========== -->
+  <div class="step active" id="step0">
+    <div class="card single-col">
+      <div class="col-left">
+        <h1>🎙️ 音频采集</h1>
+        <div class="pid-row">
+          <label>⚠ 参与者编号</label>
+          <input type="text" id="participantId" placeholder="例如 P001" maxlength="20" />
+        </div>
+        <p>录制过程分为三个部分：</p>
+        <ul style="margin:18px 0 18px 22px; color:#4a5568; line-height:2.2; font-size:16px">
+          <li>朗读单个音节（a、e、i、wu）</li>
+          <li>朗读一段短文</li>
+          <li>回答三个问题</li>
+        </ul>
+        <p>全程约 <strong>5-8 分钟</strong>，请在安静的环境中进行。点击下方按钮后，浏览器会请求麦克风权限，请允许。</p>
+        <div class="actions">
+          <span></span>
+          <button class="btn btn-primary" onclick="requestMic()">开始录制 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 步骤 1：单音 ========== -->
+  <div class="step" id="step1">
+    <div class="card">
+      <div class="col-left">
+        <h2>第一部分：单音朗读</h2>
+        <p>请依次点击下方每个音节，在右侧按录音按钮，持续发音 2-3 秒后停止。全部录完后可进入下一步。</p>
+        <div class="vowel-grid">
+          <button class="vowel-btn" id="vbtn-a"  onclick="selectVowel('a')" >a<small>啊</small></button>
+          <button class="vowel-btn" id="vbtn-e"  onclick="selectVowel('e')" >e<small>鹅</small></button>
+          <button class="vowel-btn" id="vbtn-i"  onclick="selectVowel('i')" >i<small>衣</small></button>
+          <button class="vowel-btn" id="vbtn-wu" onclick="selectVowel('wu')">wu<small>乌</small></button>
+        </div>
+        <div class="hint">💡 发音时保持自然，声音洪亮均匀即可。</div>
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="goStep(0)">← 返回</button>
+          <button class="btn btn-primary" id="step1Next" onclick="goStep(2)" disabled>下一步 →</button>
+        </div>
+      </div>
+      <div class="col-right">
+        <p class="recording-title" id="vowelPrompt">← 点击左侧音节开始</p>
+        <div class="recording-target" id="currentVowelLabel"></div>
+        <button class="record-btn idle" id="vowelRecordBtn" onclick="toggleRecord('vowel')">🎙️</button>
+        <span class="record-label" id="vowelRecordLabel">点击开始录音</span>
+        <span class="save-status" id="vowelSaveStatus"></span>
+        <div id="vowelPlayback" style="width:100%;display:none">
+          <audio id="vowelAudio" controls></audio>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 步骤 2：短文 ========== -->
+  <div class="step" id="step2">
+    <div class="card">
+      <div class="col-left">
+        <h2>第二部分：朗读短文</h2>
+        <p>请仔细阅读下面这段文字，在右侧点击录音按钮后开始朗读，朗读完成后点击停止。</p>
+        <div class="passage-box">
+          北风和太阳正在争论谁更有力量。恰好有一位旅人披着大衣走过来。他们说好，谁能先让旅人把大衣脱掉，谁就算赢。北风拼命吹，旅人却把大衣裹得更紧了。太阳出来，温柔地照着，旅人没多久就热得把大衣脱了下来。
+        </div>
+        <div class="hint">💡 语速自然，不用刻意放慢，像平时说话一样就好。</div>
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="goStep(1)">← 返回</button>
+          <button class="btn btn-primary" id="step2Next" onclick="goStep(3)" disabled>下一步 →</button>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="recording-target" style="font-size:40px">📖</div>
+        <button class="record-btn idle" id="passageRecordBtn" onclick="toggleRecord('passage')">🎙️</button>
+        <span class="record-label" id="passageRecordLabel">点击开始录音</span>
+        <span class="save-status" id="passageSaveStatus"></span>
+        <div id="passagePlayback" style="width:100%;display:none">
+          <audio id="passageAudio" controls></audio>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 步骤 3：问答 ========== -->
+  <div class="step" id="step3">
+    <div class="card">
+      <div class="col-left">
+        <span class="question-tag" id="qTag">问题 1 / 3</span>
+        <h2 id="questionText" style="font-size:20px; line-height:1.6; margin-bottom:0"></h2>
+        <p style="margin-top:16px; color:#718096;">请用自然的语言回答，没有标准答案，想到什么就说什么。</p>
+        <div class="actions">
+          <button class="btn btn-ghost" id="qaPrevBtn" onclick="prevQuestion()">← 上一题</button>
+          <button class="btn btn-primary" id="qaNextBtn" onclick="nextQuestion()" disabled></button>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="recording-target" style="font-size:40px">💬</div>
+        <button class="record-btn idle" id="qaRecordBtn" onclick="toggleRecord('qa')">🎙️</button>
+        <span class="record-label" id="qaRecordLabel">点击开始录音</span>
+        <span class="save-status" id="qaSaveStatus"></span>
+        <div id="qaPlayback" style="width:100%;display:none">
+          <audio id="qaAudio" controls></audio>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 步骤 4：完成 ========== -->
+  <div class="step" id="step4">
+    <div class="card single-col">
+      <div class="col-left" style="align-items:center; text-align:center; padding: 80px 48px;">
+        <div style="font-size:72px; margin-bottom:24px">🎉</div>
+        <h2 style="font-size:26px;">感谢你的参与！</h2>
+        <p style="margin-top:14px; color:#718096; font-size:17px;">本次录制已全部完成，请稍候。</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+const VOWELS = ['a', 'e', 'i', 'wu'];
+const QUESTIONS = [
+  '请描述一下你最近一周的整体心情和状态，想到什么就说什么。',
+  '你平时有哪些让你感到高兴或者放松的事情？请举一两个例子。',
+  '最近有没有感到特别疲惫、提不起劲，或者对以前喜欢的事情失去了兴趣？可以详细说说。',
+];
+
+let micStream = null, recorder = null, chunks = [], activeTarget = null;
+let selectedVowel = null, currentQ = 0;
+const done = {};
+
+async function requestMic() {
+  const pid = document.getElementById('participantId').value.trim();
+  if (!pid) { alert('请先填写参与者编号'); return; }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    goStep(1);
+  } catch {
+    alert('无法获取麦克风权限，请在浏览器设置中允许后刷新重试。');
+  }
+}
+
+function selectVowel(v) {
+  selectedVowel = v;
+  VOWELS.forEach(x => {
+    document.getElementById('vbtn-' + x).className =
+      done['vowel_' + x] ? 'vowel-btn done' :
+      x === v ? 'vowel-btn active' : 'vowel-btn';
+  });
+  document.getElementById('vowelPrompt').textContent = '正在录制音节';
+  document.getElementById('currentVowelLabel').textContent = v.toUpperCase();
+  const key = 'vowel_' + v;
+  document.getElementById('vowelPlayback').style.display = done[key] ? 'block' : 'none';
+  document.getElementById('vowelRecordLabel').textContent = done[key] ? '已录制，可重录' : '点击开始录音';
+  document.getElementById('vowelSaveStatus').textContent = '';
+  resetRecordBtn('vowel');
+}
+
+function showQuestion(idx) {
+  currentQ = idx;
+  document.getElementById('qTag').textContent        = `问题 ${idx + 1} / ${QUESTIONS.length}`;
+  document.getElementById('questionText').textContent = QUESTIONS[idx];
+  const key = 'qa_' + idx;
+  document.getElementById('qaPlayback').style.display = done[key] ? 'block' : 'none';
+  document.getElementById('qaRecordLabel').textContent = done[key] ? '已录制，可重录' : '点击开始录音';
+  document.getElementById('qaSaveStatus').textContent = '';
+  resetRecordBtn('qa');
+  document.getElementById('qaPrevBtn').disabled = idx === 0;
+  const nextBtn = document.getElementById('qaNextBtn');
+  nextBtn.disabled    = !done[key];
+  nextBtn.textContent = idx < QUESTIONS.length - 1 ? '下一题 →' : '完成 ✓';
+}
+
+function prevQuestion() { if (currentQ > 0) showQuestion(currentQ - 1); }
+function nextQuestion() {
+  if (currentQ < QUESTIONS.length - 1) showQuestion(currentQ + 1);
+  else goStep(4);
+}
+
+function toggleRecord(target) {
+  if (!recorder || recorder.state === 'inactive') startRecord(target);
+  else stopRecord();
+}
+
+function startRecord(target) {
+  activeTarget = target; chunks = [];
+  recorder = new MediaRecorder(micStream);
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = () => onRecordStop(target);
+  recorder.start();
+  getBtn(target).className     = 'record-btn recording';
+  getBtn(target).textContent   = '⏹';
+  getLabel(target).textContent = '录音中… 点击停止';
+}
+
+function stopRecord() {
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+}
+
+async function onRecordStop(target) {
+  const blob = new Blob(chunks, { type: 'audio/webm' });
+  const url  = URL.createObjectURL(blob);
+  let key, filename;
+
+  if (target === 'vowel') {
+    key = 'vowel_' + selectedVowel; filename = `单音_${selectedVowel.toUpperCase()}.webm`;
+    document.getElementById('vowelAudio').src = url;
+    document.getElementById('vowelPlayback').style.display = 'block';
+    getLabel(target).textContent = '已录制，可重录';
+  } else if (target === 'passage') {
+    key = 'passage'; filename = '短文朗读.webm';
+    document.getElementById('passageAudio').src = url;
+    document.getElementById('passagePlayback').style.display = 'block';
+    getLabel(target).textContent = '已录制，可重录';
+  } else {
+    key = 'qa_' + currentQ; filename = `问题${currentQ + 1}_回答.webm`;
+    document.getElementById('qaAudio').src = url;
+    document.getElementById('qaPlayback').style.display = 'block';
+    getLabel(target).textContent = '已录制，可重录';
+  }
+
+  resetRecordBtn(target);
+  await uploadRecording(blob, filename, target);
+  done[key] = true;
+
+  if (target === 'vowel') {
+    document.getElementById('vbtn-' + selectedVowel).className = 'vowel-btn done';
+    document.getElementById('step1Next').disabled = !VOWELS.every(v => done['vowel_' + v]);
+  } else if (target === 'passage') {
+    document.getElementById('step2Next').disabled = false;
+  } else {
+    const nextBtn = document.getElementById('qaNextBtn');
+    nextBtn.disabled    = false;
+    nextBtn.textContent = currentQ < QUESTIONS.length - 1 ? '下一题 →' : '完成 ✓';
+  }
+}
+
+async function uploadRecording(blob, filename, target) {
+  const statusEl = getSaveStatus(target);
+  statusEl.className = 'save-status saving';
+  statusEl.textContent = '保存中…';
+  const pid = document.getElementById('participantId').value.trim();
+  const formData = new FormData();
+  formData.append('audio', blob, filename);
+  formData.append('participant_id', pid);
+  formData.append('filename', filename);
+  try {
+    const res  = await fetch('/save', { method: 'POST', body: formData });
+    const json = await res.json();
+    if (json.status === 'ok') {
+      statusEl.className   = 'save-status ok';
+      statusEl.textContent = '已保存 ✓';
+    } else throw new Error();
+  } catch {
+    statusEl.className   = 'save-status error';
+    statusEl.textContent = '保存失败，请检查服务器';
+  }
+}
+
+function goStep(n) {
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+  document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+
+  // 更新顶部导航（步骤1-4对应nav0-3）
+  for (let i = 0; i < 4; i++) {
+    const nav = document.getElementById('nav' + i);
+    const stepIdx = i + 1;
+    nav.className = stepIdx < n ? 'nav-step done' : stepIdx === n ? 'nav-step active' : 'nav-step';
+  }
+
+  if (n === 3) showQuestion(0);
+}
+
+function getBtn(t) {
+  return document.getElementById(
+    t === 'vowel' ? 'vowelRecordBtn' : t === 'passage' ? 'passageRecordBtn' : 'qaRecordBtn');
+}
+function getLabel(t) {
+  return document.getElementById(
+    t === 'vowel' ? 'vowelRecordLabel' : t === 'passage' ? 'passageRecordLabel' : 'qaRecordLabel');
+}
+function getSaveStatus(t) {
+  return document.getElementById(
+    t === 'vowel' ? 'vowelSaveStatus' : t === 'passage' ? 'passageSaveStatus' : 'qaSaveStatus');
+}
+function resetRecordBtn(t) {
+  getBtn(t).className = 'record-btn idle';
+  getBtn(t).textContent = '🎙️';
+}
+</script>
+</body>
+</html>
