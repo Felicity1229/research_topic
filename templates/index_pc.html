@@ -170,7 +170,7 @@
       justify-content: center;
       gap: 6px;
     }
-    .vowel-btn small { font-size: 13px; font-weight: 400; color: #a0aec0; }
+    .vowel-btn small { font-size: 18px; font-weight: 500; color: #718096; }
     .vowel-btn:hover  { border-color: #4f86f7; color: #4f86f7; transform: translateY(-2px); }
     .vowel-btn.active { border-color: #4f86f7; background: #ebf4ff; color: #4f86f7; }
     .vowel-btn.done   { border-color: #48bb78; background: #f0fff4; color: #48bb78; }
@@ -253,6 +253,12 @@
 
     .step { display: none; }
     .step.active { display: flex; width: 100%; justify-content: center; }
+
+    .countdown {
+      font-size: 52px; font-weight: 800; color: #e53e3e;
+      min-height: 64px;
+      display: flex; align-items: center; justify-content: center;
+    }
   </style>
 </head>
 <body>
@@ -265,7 +271,7 @@
     </div>
     <div class="nav-step" id="nav1">
       <div class="nav-dot">2</div>
-      <span class="nav-label">短文</span>
+      <span class="nav-label">句子</span>
     </div>
     <div class="nav-step" id="nav2">
       <div class="nav-dot">3</div>
@@ -289,7 +295,7 @@
         <p>录制过程分为三个部分：</p>
         <ul style="margin:18px 0 18px 22px; color:#4a5568; line-height:2.2; font-size:16px">
           <li>朗读单个音节（a、e、i、wu）</li>
-          <li>朗读一段短文</li>
+          <li>朗读一个句子</li>
           <li>回答三个问题</li>
         </ul>
         <p>全程约 <strong>5-8 分钟</strong>，请在安静的环境中进行。点击下方按钮后，浏览器会请求麦克风权限，请允许。</p>
@@ -306,7 +312,7 @@
     <div class="card">
       <div class="col-left">
         <h2>第一部分：单音朗读</h2>
-        <p>请依次点击下方每个音节，在右侧按录音按钮，持续发音 2-3 秒后停止。全部录完后可进入下一步。</p>
+        <p>请依次点击下方每个音节，在右侧点击录音按钮，系统将自动录制 <strong>3 秒</strong>后停止。全部录完后可进入下一步。</p>
         <div class="vowel-grid">
           <button class="vowel-btn" id="vbtn-a"  onclick="selectVowel('a')" >a<small>啊</small></button>
           <button class="vowel-btn" id="vbtn-e"  onclick="selectVowel('e')" >e<small>鹅</small></button>
@@ -323,6 +329,7 @@
         <p class="recording-title" id="vowelPrompt">← 点击左侧音节开始</p>
         <div class="recording-target" id="currentVowelLabel"></div>
         <button class="record-btn idle" id="vowelRecordBtn" onclick="toggleRecord('vowel')">🎙️</button>
+        <div class="countdown" id="vowelCountdown"></div>
         <span class="record-label" id="vowelRecordLabel">点击开始录音</span>
         <span class="save-status" id="vowelSaveStatus"></span>
         <div id="vowelPlayback" style="width:100%;display:none">
@@ -332,16 +339,16 @@
     </div>
   </div>
 
-  <!-- ========== 步骤 2：短文 ========== -->
+  <!-- ========== 步骤 2：朗读句子 ========== -->
   <div class="step" id="step2">
     <div class="card">
       <div class="col-left">
-        <h2>第二部分：朗读短文</h2>
-        <p>请仔细阅读下面这段文字，在右侧点击录音按钮后开始朗读，朗读完成后点击停止。</p>
-        <div class="passage-box">
-          北风和太阳正在争论谁更有力量。恰好有一位旅人披着大衣走过来。他们说好，谁能先让旅人把大衣脱掉，谁就算赢。北风拼命吹，旅人却把大衣裹得更紧了。太阳出来，温柔地照着，旅人没多久就热得把大衣脱了下来。
+        <h2>第二部分：朗读句子</h2>
+        <p>请仔细阅读下面这句话，准备好后在右侧点击录音按钮，朗读完成后点击停止。</p>
+        <div class="passage-box" style="font-size:22px; text-align:center; line-height:2.4; padding: 32px 28px;">
+          桌上放着一本书和一个杯子，窗外有树，也有来往的人。
         </div>
-        <div class="hint">💡 语速自然，不用刻意放慢，像平时说话一样就好。</div>
+        <div class="hint">💡 语速自然，清晰朗读即可，不需要停顿或强调。</div>
         <div class="actions">
           <button class="btn btn-ghost" onclick="goStep(1)">← 返回</button>
           <button class="btn btn-primary" id="step2Next" onclick="goStep(3)" disabled>下一步 →</button>
@@ -389,7 +396,7 @@
       <div class="col-left" style="align-items:center; text-align:center; padding: 80px 48px;">
         <div style="font-size:72px; margin-bottom:24px">🎉</div>
         <h2 style="font-size:26px;">感谢你的参与！</h2>
-        <p style="margin-top:14px; color:#718096; font-size:17px;">本次录制已全部完成，请稍候。</p>
+        <p style="margin-top:14px; color:#718096; font-size:17px;">本次录制已全部完成，页面将在 <span id="countdown">5</span> 秒后自动关闭。</p>
       </div>
     </div>
   </div>
@@ -402,22 +409,35 @@ const QUESTIONS = [
   '最近有没有感到特别疲惫、提不起劲，或者对以前喜欢的事情失去了兴趣？可以详细说说。',
 ];
 
-let micStream = null, recorder = null, chunks = [], activeTarget = null;
-let selectedVowel = null, currentQ = 0;
-const done = {};
+let micStream     = null;
+let audioContext  = null;
+let scriptProcessor = null;
+let leftChannels  = [], rightChannels = [];
+let isRecording   = false;
+let activeTarget  = null;
+let selectedVowel = null;
+let currentQ      = 0;
+let vowelTimer    = null;
+const done        = {};
 
+// ── 麦克风权限 ───────────────────────────────────────────
 async function requestMic() {
   const pid = document.getElementById('participantId').value.trim();
   if (!pid) { alert('请先填写参与者编号'); return; }
   try {
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStream    = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 48000, channelCount: 2 }
+    });
+    audioContext = new AudioContext({ sampleRate: 48000 });
     goStep(1);
   } catch {
     alert('无法获取麦克风权限，请在浏览器设置中允许后刷新重试。');
   }
 }
 
+// ── 单音选择 ──────────────────────────────────────────────
 function selectVowel(v) {
+  if (isRecording) return;
   selectedVowel = v;
   VOWELS.forEach(x => {
     document.getElementById('vbtn-' + x).className =
@@ -429,18 +449,20 @@ function selectVowel(v) {
   const key = 'vowel_' + v;
   document.getElementById('vowelPlayback').style.display = done[key] ? 'block' : 'none';
   document.getElementById('vowelRecordLabel').textContent = done[key] ? '已录制，可重录' : '点击开始录音';
-  document.getElementById('vowelSaveStatus').textContent = '';
+  document.getElementById('vowelSaveStatus').textContent  = '';
+  document.getElementById('vowelCountdown').textContent   = '';
   resetRecordBtn('vowel');
 }
 
+// ── 问答 ─────────────────────────────────────────────────
 function showQuestion(idx) {
   currentQ = idx;
-  document.getElementById('qTag').textContent        = `问题 ${idx + 1} / ${QUESTIONS.length}`;
+  document.getElementById('qTag').textContent         = `问题 ${idx + 1} / ${QUESTIONS.length}`;
   document.getElementById('questionText').textContent = QUESTIONS[idx];
   const key = 'qa_' + idx;
-  document.getElementById('qaPlayback').style.display = done[key] ? 'block' : 'none';
+  document.getElementById('qaPlayback').style.display  = done[key] ? 'block' : 'none';
   document.getElementById('qaRecordLabel').textContent = done[key] ? '已录制，可重录' : '点击开始录音';
-  document.getElementById('qaSaveStatus').textContent = '';
+  document.getElementById('qaSaveStatus').textContent  = '';
   resetRecordBtn('qa');
   document.getElementById('qaPrevBtn').disabled = idx === 0;
   const nextBtn = document.getElementById('qaNextBtn');
@@ -454,43 +476,77 @@ function nextQuestion() {
   else goStep(4);
 }
 
+// ── 录音切换 ─────────────────────────────────────────────
 function toggleRecord(target) {
-  if (!recorder || recorder.state === 'inactive') startRecord(target);
-  else stopRecord();
+  if (isRecording) {
+    if (target !== 'vowel') stopRecord(); // 单音由定时器自动停止
+  } else {
+    startRecord(target);
+  }
 }
 
 function startRecord(target) {
-  activeTarget = target; chunks = [];
-  recorder = new MediaRecorder(micStream);
-  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-  recorder.onstop = () => onRecordStop(target);
-  recorder.start();
-  getBtn(target).className     = 'record-btn recording';
-  getBtn(target).textContent   = '⏹';
-  getLabel(target).textContent = '录音中… 点击停止';
+  activeTarget  = target;
+  leftChannels  = [];
+  rightChannels = [];
+  isRecording   = true;
+
+  const source = audioContext.createMediaStreamSource(micStream);
+  scriptProcessor = audioContext.createScriptProcessor(4096, 2, 2);
+  scriptProcessor.onaudioprocess = (e) => {
+    if (!isRecording) return;
+    leftChannels.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+    rightChannels.push(new Float32Array(e.inputBuffer.getChannelData(1)));
+  };
+  source.connect(scriptProcessor);
+  scriptProcessor.connect(audioContext.destination);
+
+  getBtn(target).className = 'record-btn recording';
+
+  if (target === 'vowel') {
+    getBtn(target).textContent   = '…';
+    getLabel(target).textContent = '录音中（固定3秒）';
+    let remaining = 3;
+    document.getElementById('vowelCountdown').textContent = remaining + 's';
+    const interval = setInterval(() => {
+      remaining--;
+      document.getElementById('vowelCountdown').textContent = remaining > 0 ? remaining + 's' : '';
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+    vowelTimer = setTimeout(() => { clearInterval(interval); stopRecord(); }, 3000);
+  } else {
+    getBtn(target).textContent   = '⏹';
+    getLabel(target).textContent = '录音中… 点击停止';
+  }
 }
 
 function stopRecord() {
-  if (recorder && recorder.state !== 'inactive') recorder.stop();
+  if (!isRecording) return;
+  isRecording = false;
+  if (vowelTimer) { clearTimeout(vowelTimer); vowelTimer = null; }
+  if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
+  onRecordStop(activeTarget);
 }
 
+// ── 录音结束处理 ─────────────────────────────────────────
 async function onRecordStop(target) {
-  const blob = new Blob(chunks, { type: 'audio/webm' });
+  const blob = encodeWAVFloat64(leftChannels, rightChannels, 48000);
   const url  = URL.createObjectURL(blob);
   let key, filename;
 
   if (target === 'vowel') {
-    key = 'vowel_' + selectedVowel; filename = `单音_${selectedVowel.toUpperCase()}.webm`;
+    key = 'vowel_' + selectedVowel; filename = `单音_${selectedVowel.toUpperCase()}.wav`;
     document.getElementById('vowelAudio').src = url;
     document.getElementById('vowelPlayback').style.display = 'block';
+    document.getElementById('vowelCountdown').textContent  = '';
     getLabel(target).textContent = '已录制，可重录';
   } else if (target === 'passage') {
-    key = 'passage'; filename = '短文朗读.webm';
+    key = 'passage'; filename = '句子朗读.wav';
     document.getElementById('passageAudio').src = url;
     document.getElementById('passagePlayback').style.display = 'block';
     getLabel(target).textContent = '已录制，可重录';
   } else {
-    key = 'qa_' + currentQ; filename = `问题${currentQ + 1}_回答.webm`;
+    key = 'qa_' + currentQ; filename = `问题${currentQ + 1}_回答.wav`;
     document.getElementById('qaAudio').src = url;
     document.getElementById('qaPlayback').style.display = 'block';
     getLabel(target).textContent = '已录制，可重录';
@@ -512,9 +568,10 @@ async function onRecordStop(target) {
   }
 }
 
+// ── 上传 ─────────────────────────────────────────────────
 async function uploadRecording(blob, filename, target) {
   const statusEl = getSaveStatus(target);
-  statusEl.className = 'save-status saving';
+  statusEl.className   = 'save-status saving';
   statusEl.textContent = '保存中…';
   const pid = document.getElementById('participantId').value.trim();
   const formData = new FormData();
@@ -534,19 +591,78 @@ async function uploadRecording(blob, filename, target) {
   }
 }
 
+// ── WAV Float64 编码器 ────────────────────────────────────
+function encodeWAVFloat64(leftChunks, rightChunks, sampleRate) {
+  let total = 0;
+  for (const c of leftChunks) total += c.length;
+
+  const left  = mergeFloat64(leftChunks,  total);
+  const right = mergeFloat64(rightChunks, total);
+
+  const numCh    = 2, bps = 8;
+  const dataSize = total * numCh * bps;
+  const buf      = new ArrayBuffer(44 + dataSize);
+  const v        = new DataView(buf);
+
+  writeStr(v, 0,  'RIFF');
+  v.setUint32(4,  36 + dataSize, true);
+  writeStr(v, 8,  'WAVE');
+  writeStr(v, 12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 3,  true);           // IEEE float
+  v.setUint16(22, numCh, true);
+  v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * numCh * bps, true);
+  v.setUint16(32, numCh * bps, true);
+  v.setUint16(34, 64, true);           // 64-bit
+  writeStr(v, 36, 'data');
+  v.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let i = 0; i < total; i++) {
+    v.setFloat64(offset, left[i],  true); offset += 8;
+    v.setFloat64(offset, right[i], true); offset += 8;
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+function mergeFloat64(chunks, total) {
+  const out = new Float64Array(total);
+  let i = 0;
+  for (const c of chunks) for (const s of c) out[i++] = s;
+  return out;
+}
+
+function writeStr(view, offset, str) {
+  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+}
+
+// ── 步骤切换 ─────────────────────────────────────────────
 function goStep(n) {
-  if (recorder && recorder.state !== 'inactive') recorder.stop();
+  if (isRecording) stopRecord();
   document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
   document.getElementById('step' + n).classList.add('active');
-
-  // 更新顶部导航（步骤1-4对应nav0-3）
   for (let i = 0; i < 4; i++) {
     const nav = document.getElementById('nav' + i);
     const stepIdx = i + 1;
     nav.className = stepIdx < n ? 'nav-step done' : stepIdx === n ? 'nav-step active' : 'nav-step';
   }
-
   if (n === 3) showQuestion(0);
+  if (n === 4) startCloseCountdown();
+}
+
+function startCloseCountdown() {
+  let sec = 5;
+  const el = document.getElementById('countdown');
+  const interval = setInterval(async () => {
+    sec--;
+    if (el) el.textContent = sec;
+    if (sec <= 0) {
+      clearInterval(interval);
+      window.close();
+      await fetch('/shutdown', { method: 'POST' });
+    }
+  }, 1000);
 }
 
 function getBtn(t) {
@@ -562,7 +678,7 @@ function getSaveStatus(t) {
     t === 'vowel' ? 'vowelSaveStatus' : t === 'passage' ? 'passageSaveStatus' : 'qaSaveStatus');
 }
 function resetRecordBtn(t) {
-  getBtn(t).className = 'record-btn idle';
+  getBtn(t).className   = 'record-btn idle';
   getBtn(t).textContent = '🎙️';
 }
 </script>

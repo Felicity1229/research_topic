@@ -2,3 +2,5 @@ recordings/
 __pycache__/
 *.pyc
 .DS_Store
+*.command
+启动.command

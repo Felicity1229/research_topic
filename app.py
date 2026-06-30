@@ -1,4 +1,6 @@
 import os
+import threading
+import webbrowser
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 
@@ -12,6 +14,11 @@ def index():
 @app.route('/pc')
 def index_pc():
     return render_template('index_pc.html')
+
+@app.route('/shutdown', methods=['POST'])
+def shutdown():
+    threading.Timer(0.5, lambda: os._exit(0)).start()
+    return jsonify({'status': 'ok'})
 
 @app.route('/save', methods=['POST'])
 def save():
@@ -35,4 +42,5 @@ def save():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    threading.Timer(1.0, lambda: webbrowser.open('http://localhost:5000/pc')).start()
+    app.run(debug=False)
